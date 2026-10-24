@@ -618,6 +618,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (singleRow && !cfg.alwaysShowNames) want += (int) (29 * density);
             if (grid.getPaddingTop() != want) {
                 grid.setPadding(grid.getPaddingLeft(), want, grid.getPaddingRight(), grid.getPaddingBottom());
+                // The layout manager keeps the first row where it already is when the padding changes under it;
+                // without a dock there is nothing to scroll it into place later, so anchor row 0 on the new line.
+                if (!MainActivity.this.dockRow && !singleRow)
+                    ((GridLayoutManager) grid.getLayoutManager()).scrollToPositionWithOffset(0, 0);
                 // A vertical grid parks the dock on the new padding line by scrolling (onTileFocused); a sideways
                 // row cannot scroll vertically, and the layout request made from inside this layout pass is
                 // dropped, so lay the row out again on the next frame. The glass and the title were placed for the
