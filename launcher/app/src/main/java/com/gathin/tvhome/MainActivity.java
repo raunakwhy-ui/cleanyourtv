@@ -221,6 +221,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean reducedMotion;
     /** config.xml dock_row: the first row is a separate dock (band, parked low, top shelf) rather than plain grid. */
     private boolean dockRow;
+    /** Places the grid's top padding; kept so a tile reload can run it again (center_grid depends on the app count). */
+    private View.OnLayoutChangeListener gridPlacer;
     /** config single_row: every app in the dock's row, scrolling sideways, no grid below. */
     private boolean singleRow;
     /** The highlight springs past its target (config.xml, focus_overshoot); false goes straight there. */
@@ -581,7 +583,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // tvOS layout: push the dock row towards the bottom of the screen, leaving room for
         // rows_below_dock grid rows under it; the rest of the grid stays below until you press Down.
         int rowsBelowDock = cfg.rowsBelowDock;
-        grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+        gridPlacer = (v, l, t, r, b, ol, ot, or, ob) -> {
             int h = b - t;
             // Item height follows the tile size, which follows the columns and the rows that must fit (AppAdapter.tileWidthPx).
             int inner = (r - l) - grid.getPaddingLeft() - grid.getPaddingRight();
@@ -599,6 +601,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // No dock to push down: the grid starts at the top, with room for the first row's zoom and glass.
             if (!MainActivity.this.dockRow) {
                 want = (int) (AppAdapter.TOP_ROOM_DP * density);
+                android.util.Log.i("CYT", "grid h=" + h + " center=" + Config.CENTER_GRID + " apps=" + (adapter == null ? -1 : adapter.appCount()) + " pad=" + grid.getPaddingTop());
                 // center_grid: all the rows together sit in the vertical middle of the grid area below the
                 // header, never above TOP_ROOM. With the names hidden the last row's label room is empty, so
                 // only the tiles themselves are centred.
@@ -607,6 +610,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     int tileH = AppAdapter.tileHeightPx(tileW);
                     int block = itemH * rows - (Config.HIDE_NAMES ? itemH - tileH : 0);
                     want = Math.max(want, (h - block) / 2);
+                    android.util.Log.i("CYT", "center rows=" + rows + " itemH=" + itemH + " block=" + block + " want=" + want);
                 }
             }
             // A single row never shows the names under its tiles (the title above the row names the app), so the
@@ -635,7 +639,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Cold start or column count > 4: the first focus can run before the grid has its final width or
             // padding, leaving the glass at the XML design size until a key is pressed.
             grid.post(this::refitGlass);
-        });
+        };
+        grid.addOnLayoutChangeListener(gridPlacer);
 
         // Keep the glass glued to its tile while the grid scrolls.
         grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -1095,6 +1100,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         lastFocusedKey = returnKey;
         lastFocused = returnSlot;
         packageSequence = currentPackageSequence(packageSequence);
+        // center_grid: the padding depends on how many rows there are now; the bounds did not change, so the
+        // layout listener would not run on its own.
+        if (Config.CENTER_GRID && gridPlacer != null && grid.getWidth() > 0) grid.post(() ->
+                gridPlacer.onLayoutChange(grid, grid.getLeft(), grid.getTop(), grid.getRight(), grid.getBottom(), 0, 0, 0, 0));
     }
 
     /**
