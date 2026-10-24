@@ -599,13 +599,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // No dock to push down: the grid starts at the top, with room for the first row's zoom and glass.
             if (!MainActivity.this.dockRow) {
                 want = (int) (AppAdapter.TOP_ROOM_DP * density);
-                // center_grid: all the rows together sit in the vertical middle of the screen, never above TOP_ROOM.
+                // center_grid: all the rows together sit in the vertical middle of the grid area below the
+                // header, never above TOP_ROOM. With the names hidden the last row's label room is empty, so
+                // only the tiles themselves are centred.
                 if (Config.CENTER_GRID && adapter != null) {
                     int rows = (adapter.appCount() + COLUMNS - 1) / COLUMNS;
-                    int[] loc = new int[2];
-                    grid.getLocationOnScreen(loc);
-                    int screenH = getResources().getDisplayMetrics().heightPixels;
-                    want = Math.max(want, screenH / 2 - loc[1] - itemH * rows / 2);
+                    int tileH = AppAdapter.tileHeightPx(tileW);
+                    int block = itemH * rows - (Config.HIDE_NAMES ? itemH - tileH : 0);
+                    want = Math.max(want, (h - block) / 2);
                 }
             }
             // A single row never shows the names under its tiles (the title above the row names the app), so the
