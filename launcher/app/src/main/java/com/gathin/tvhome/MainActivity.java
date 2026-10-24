@@ -597,7 +597,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // room above the dock and the last rows run off the bottom instead of the title drawing over the clock.
             if (MainActivity.this.dockRow && cfg.dockTitle && rowsBelowDock > 0) want = Math.max(want, (int) (AppAdapter.TITLE_ROOM_DP * density));
             // No dock to push down: the grid starts at the top, with room for the first row's zoom and glass.
-            if (!MainActivity.this.dockRow) want = (int) (AppAdapter.TOP_ROOM_DP * density);
+            if (!MainActivity.this.dockRow) {
+                want = (int) (AppAdapter.TOP_ROOM_DP * density);
+                // center_grid: all the rows together sit in the vertical middle of the screen, never above TOP_ROOM.
+                if (Config.CENTER_GRID && adapter != null) {
+                    int rows = (adapter.appCount() + COLUMNS - 1) / COLUMNS;
+                    int[] loc = new int[2];
+                    grid.getLocationOnScreen(loc);
+                    int screenH = getResources().getDisplayMetrics().heightPixels;
+                    want = Math.max(want, screenH / 2 - loc[1] - itemH * rows / 2);
+                }
+            }
             // A single row never shows the names under its tiles (the title above the row names the app), so the
             // 7dp gap and 22dp label item_app.xml keeps for them would only lift the row: sit it that much lower.
             if (singleRow && !cfg.alwaysShowNames) want += (int) (29 * density);

@@ -40,6 +40,8 @@ final class Config {
     static final String FILE_NAME = "config.json";
     /** config hide_names: no name under any tile, focused or not (read with the overlay, see load). */
     static volatile boolean HIDE_NAMES;
+    /** config center_grid: with dock_row off, the grid sits in the vertical middle of the screen. */
+    static volatile boolean CENTER_GRID;
     static final String WALLPAPER_NAME = "wallpaper.jpg";
     static final String SETTINGS_NAME = "launcher_settings";
     static final String ROWS_BELOW_DOCK_KEY = "rows_below_dock";
@@ -464,6 +466,7 @@ final class Config {
         boolean mounted = Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState());
         JSONObject json = readOverlay(ctx, file, mounted);
         HIDE_NAMES = json != null && bool(json, "hide_names", false);
+        CENTER_GRID = json != null && bool(json, "center_grid", false);
         if (json != null) {
             applied = true;
             dock = stringList(json, "dock_apps", dock);
