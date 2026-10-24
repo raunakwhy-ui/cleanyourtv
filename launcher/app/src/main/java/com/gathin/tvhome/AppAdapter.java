@@ -9,11 +9,13 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -34,6 +36,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -78,6 +81,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         int ambient;
         /** uniform_tiles card fill, top and bottom colour; null until sampled from the icon. */
         int[] backdrop;
+        /** The banner is a logo pushed with the theme (art/<package>.png): drawn alone, no card behind it. */
+        boolean logo;
 
         Entry(String label, ComponentName component, Drawable banner, Drawable icon) {
             this(APP, label, component, banner, icon, null, 0);
@@ -299,11 +304,15 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
             // The icon is only drawn (and sampled for the glow) when there is no banner, so a tile with a
             // banner skips loading and decoding it.
+            Drawable logo = card == null ? themeArt(pkg) : null;
+            if (logo != null) banner = logo;
             Drawable icon = banner == null ? ri.loadIcon(pm) : null;
             if (card != null) {
                 fresh.add(new Entry(Entry.CARD, label, component, banner, icon, card.caption, card.accent));
             } else {
-                fresh.add(new Entry(label, component, banner, icon));
+                Entry entry = new Entry(label, component, banner, icon);
+                entry.logo = logo != null;
+                fresh.add(entry);
             }
         }
         Collections.sort(fresh, (a, b) -> {
@@ -338,6 +347,22 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         items.clear();
         items.addAll(fresh);
         notifyDataSetChanged();
+    }
+
+    /**
+     * A logo pushed with the theme as art/<package>.png (or .webp, .jpg) under {@link Config#dir}: the tile shows
+     * it alone, fitted inside the tile with no card behind it. Null when there is none.
+     */
+    private Drawable themeArt(String pkg) {
+        File dir = Config.dir(ctx);
+        if (dir == null) return null;
+        for (String ext : new String[]{".png", ".webp", ".jpg"}) {
+            File f = new File(dir, "art/" + pkg + ext);
+            if (!f.isFile()) continue;
+            Bitmap b = BitmapFactory.decodeFile(f.getPath());
+            if (b != null) return new BitmapDrawable(ctx.getResources(), b);
+        }
+        return null;
     }
 
     /** A banner_* drawable bundled with the launcher, or null for none or a name that is not one. */
@@ -451,7 +476,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         // The dock has no labels, unless always_show_names asks for them (DockDecoration then makes room in the band).
         // In a single row every tile is the dock's kind: the big title above names it.
         boolean dockKind = dockRow && (singleRow || position < dockSize);
-        h.name.setVisibility(dockKind && restNameAlpha == 0f ? View.INVISIBLE : View.VISIBLE);
+        h.name.setVisibility((dockKind && restNameAlpha == 0f) || Config.HIDE_NAMES ? View.INVISIBLE : View.VISIBLE);
         boolean focused = h.card.isFocused();   // a rebind after reload() can hit the focused tile
         h.name.setAlpha(focused ? 1f : restNameAlpha);
         h.card.setScaleX(focused && animations ? focusScale() : 1f);
@@ -467,6 +492,11 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (e.backdrop == null) e.backdrop = backdrop(e.icon, ambientColorAt(position));
             h.card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, e.backdrop));
         }
+        // A theme logo floats over the wallpaper: no card fill, fitted with a margin instead of cropped.
+        if (e.logo) h.card.setBackground(null);
+        h.banner.setScaleType(e.logo ? ImageView.ScaleType.FIT_CENTER : ImageView.ScaleType.CENTER_CROP);
+        int logoPad = e.logo ? Math.round(12f * ctx.getResources().getDisplayMetrics().density) : 0;
+        h.banner.setPadding(logoPad, logoPad, logoPad, logoPad);
         if (e.banner != null) {
             h.banner.setImageDrawable(e.banner);
             h.banner.setVisibility(View.VISIBLE);

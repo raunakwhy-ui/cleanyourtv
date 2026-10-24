@@ -38,6 +38,8 @@ import java.util.Set;
 final class Config {
     private static final String TAG = "TvHome.Config";
     static final String FILE_NAME = "config.json";
+    /** config hide_names: no name under any tile, focused or not (read with the overlay, see load). */
+    static volatile boolean HIDE_NAMES;
     static final String WALLPAPER_NAME = "wallpaper.jpg";
     static final String SETTINGS_NAME = "launcher_settings";
     static final String ROWS_BELOW_DOCK_KEY = "rows_below_dock";
@@ -461,6 +463,7 @@ final class Config {
         File file = dir != null ? new File(dir, FILE_NAME) : null;
         boolean mounted = Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState());
         JSONObject json = readOverlay(ctx, file, mounted);
+        HIDE_NAMES = json != null && bool(json, "hide_names", false);
         if (json != null) {
             applied = true;
             dock = stringList(json, "dock_apps", dock);
